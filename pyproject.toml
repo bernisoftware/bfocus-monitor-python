@@ -1,0 +1,44 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "bfocus-monitor"
+version = "0.1.0"
+description = "Monitoramento de erros do bFocus para Python: captura os erros não tratados e manda para o bFocus, onde viram demanda."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "Berni Software", email = "tecnologia@bernisoftware.com.br" }]
+keywords = ["bfocus", "monitor", "monitoramento", "erros", "exceptions", "error tracking", "fastapi", "django", "flask"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: Portuguese (Brazilian)",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Framework :: Django",
+    "Framework :: FastAPI",
+    "Framework :: Flask",
+    "Topic :: Software Development :: Bug Tracking",
+    "Topic :: System :: Monitoring",
+    "Typing :: Typed",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://bfocus.com.br"
+Repository = "https://github.com/bernisoftware/bfocus-monitor-python"
+
+[tool.hatch.build.targets.wheel]
+packages = ["bfocus_monitor"]
+
+[tool.hatch.build.targets.sdist]
+include = ["bfocus_monitor", "tests", "README.md", "LICENSE", "pyproject.toml"]

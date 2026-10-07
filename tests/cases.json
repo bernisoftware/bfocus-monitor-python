@@ -1,0 +1,549 @@
+{
+  "version": 1,
+  "key": "bf_mon_conformance",
+  "path": "/api/v1/monitor/events",
+  "user_hash": [
+    {
+      "secret": "whs_secret_A",
+      "ts": 1760000000,
+      "user_external_id": "u-123",
+      "customer_external_id": "cliente-9",
+      "expected": "v2.1760000000.576dbbed2ebc9be9f4c61a68eaf61f763ae5c16efbe7dcd71ba128f3305523af"
+    },
+    {
+      "secret": "whs_secret_A",
+      "ts": 1760003600,
+      "user_external_id": "u-123",
+      "customer_external_id": "cliente-9",
+      "expected": "v2.1760003600.41daf5916ffa0b7f9774c693a2449dca1548955d7fab54694b7f6f1a4e7dbdd2"
+    },
+    {
+      "secret": "outro-segredo",
+      "ts": 1760000000,
+      "user_external_id": "joão.silva@empresa",
+      "customer_external_id": "ERP 1042",
+      "expected": "v2.1760000000.24a7513598d425f141706b1cc06b3fcf77d10e538db8e1cb148aae3d3024b082"
+    },
+    {
+      "secret": "whs_secret_A",
+      "ts": 1760000000,
+      "user_external_id": "42",
+      "customer_external_id": "42",
+      "expected": "v2.1760000000.272200b66ef4c0849559487621b5cd78902690ccdd86bfbe4a009939c8e576f0"
+    }
+  ],
+  "send": [
+    {
+      "name": "erro simples leva release, ambiente, nível, tipo, mensagem e sdk",
+      "init": {
+        "key": "bf_mon_conformance",
+        "release": "1.4.2",
+        "environment": "staging"
+      },
+      "capture": {
+        "kind": "exception",
+        "type": "ValueError",
+        "message": "valor inválido"
+      },
+      "requests": [
+        {
+          "expect": {
+            "method": "POST",
+            "path": "/api/v1/monitor/events",
+            "headers": {
+              "X-bFocus-Monitor-Key": "bf_mon_conformance",
+              "Content-Type": "application/json"
+            },
+            "header_prefix": {
+              "X-bFocus-Client": "bfocus-monitor-"
+            },
+            "event": {
+              "release": "1.4.2",
+              "environment": "staging",
+              "level": "error",
+              "exception.type": "ValueError",
+              "exception.message": "valor inválido",
+              "sdk.version": "$version"
+            }
+          },
+          "respond": {
+            "status": 202,
+            "body": {
+              "accepted": 1,
+              "dropped": 0,
+              "invalid": 0,
+              "ignored": 0
+            }
+          }
+        }
+      ],
+      "after": "ok"
+    },
+    {
+      "name": "identidade assinada pelo próprio pacote com signingSecret",
+      "init": {
+        "key": "bf_mon_conformance",
+        "release": "1.4.2",
+        "environment": "staging",
+        "signing_secret": "whs_secret_A"
+      },
+      "set_user": {
+        "user_external_id": "u-123",
+        "customer_external_id": "cliente-9",
+        "ts": 1760000000
+      },
+      "capture": {
+        "kind": "exception",
+        "type": "KeyError",
+        "message": "pedido"
+      },
+      "requests": [
+        {
+          "expect": {
+            "method": "POST",
+            "path": "/api/v1/monitor/events",
+            "headers": {
+              "X-bFocus-Monitor-Key": "bf_mon_conformance",
+              "Content-Type": "application/json"
+            },
+            "header_prefix": {
+              "X-bFocus-Client": "bfocus-monitor-"
+            },
+            "event": {
+              "user.externalId": "u-123",
+              "customer.externalId": "cliente-9",
+              "user.userHash": "v2.1760000000.576dbbed2ebc9be9f4c61a68eaf61f763ae5c16efbe7dcd71ba128f3305523af"
+            }
+          },
+          "respond": {
+            "status": 202,
+            "body": {
+              "accepted": 1
+            }
+          }
+        }
+      ],
+      "after": "ok"
+    },
+    {
+      "name": "userHash dado pelo cliente passa como veio",
+      "init": {
+        "key": "bf_mon_conformance",
+        "release": "1.4.2",
+        "environment": "staging"
+      },
+      "set_user": {
+        "user_external_id": "u-9",
+        "customer_external_id": "c-9",
+        "user_hash": "v2.1.abc"
+      },
+      "capture": {
+        "kind": "exception",
+        "type": "E",
+        "message": "x"
+      },
+      "requests": [
+        {
+          "expect": {
+            "method": "POST",
+            "path": "/api/v1/monitor/events",
+            "headers": {
+              "X-bFocus-Monitor-Key": "bf_mon_conformance",
+              "Content-Type": "application/json"
+            },
+            "header_prefix": {
+              "X-bFocus-Client": "bfocus-monitor-"
+            },
+            "event": {
+              "user.externalId": "u-9",
+              "customer.externalId": "c-9",
+              "user.userHash": "v2.1.abc"
+            }
+          },
+          "respond": {
+            "status": 202,
+            "body": {
+              "accepted": 1
+            }
+          }
+        }
+      ],
+      "after": "ok"
+    },
+    {
+      "name": "tags, fingerprint e nível vão no evento",
+      "init": {
+        "key": "bf_mon_conformance",
+        "release": "1.4.2",
+        "environment": "staging"
+      },
+      "capture": {
+        "kind": "exception",
+        "type": "E",
+        "message": "y",
+        "level": "warning",
+        "tags": {
+          "modulo": "fiscal"
+        },
+        "fingerprint": [
+          "nota-fiscal",
+          "timeout"
+        ]
+      },
+      "requests": [
+        {
+          "expect": {
+            "method": "POST",
+            "path": "/api/v1/monitor/events",
+            "headers": {
+              "X-bFocus-Monitor-Key": "bf_mon_conformance",
+              "Content-Type": "application/json"
+            },
+            "header_prefix": {
+              "X-bFocus-Client": "bfocus-monitor-"
+            },
+            "event": {
+              "level": "warning",
+              "tags.modulo": "fiscal",
+              "fingerprint": [
+                "nota-fiscal",
+                "timeout"
+              ]
+            }
+          },
+          "respond": {
+            "status": 202,
+            "body": {
+              "accepted": 1
+            }
+          }
+        }
+      ],
+      "after": "ok"
+    },
+    {
+      "name": "breadcrumb antes do erro vai junto",
+      "init": {
+        "key": "bf_mon_conformance",
+        "release": "1.4.2",
+        "environment": "staging"
+      },
+      "breadcrumbs": [
+        {
+          "category": "http",
+          "message": "GET /api/x 500",
+          "level": "error"
+        }
+      ],
+      "capture": {
+        "kind": "exception",
+        "type": "E",
+        "message": "z"
+      },
+      "requests": [
+        {
+          "expect": {
+            "method": "POST",
+            "path": "/api/v1/monitor/events",
+            "headers": {
+              "X-bFocus-Monitor-Key": "bf_mon_conformance",
+              "Content-Type": "application/json"
+            },
+            "header_prefix": {
+              "X-bFocus-Client": "bfocus-monitor-"
+            },
+            "event": {
+              "breadcrumbs.0.category": "http",
+              "breadcrumbs.0.message": "GET /api/x 500",
+              "breadcrumbs.0.level": "error"
+            }
+          },
+          "respond": {
+            "status": 202,
+            "body": {
+              "accepted": 1
+            }
+          }
+        }
+      ],
+      "after": "ok"
+    },
+    {
+      "name": "mensagem capturada vira evento com o nível pedido",
+      "init": {
+        "key": "bf_mon_conformance",
+        "release": "1.4.2",
+        "environment": "staging"
+      },
+      "capture": {
+        "kind": "message",
+        "message": "estoque negativo",
+        "level": "info"
+      },
+      "requests": [
+        {
+          "expect": {
+            "method": "POST",
+            "path": "/api/v1/monitor/events",
+            "headers": {
+              "X-bFocus-Monitor-Key": "bf_mon_conformance",
+              "Content-Type": "application/json"
+            },
+            "header_prefix": {
+              "X-bFocus-Client": "bfocus-monitor-"
+            },
+            "event": {
+              "level": "info",
+              "exception.message": "estoque negativo"
+            }
+          },
+          "respond": {
+            "status": 202,
+            "body": {
+              "accepted": 1
+            }
+          }
+        }
+      ],
+      "after": "ok"
+    },
+    {
+      "name": "ignore descarta sem rede",
+      "init": {
+        "key": "bf_mon_conformance",
+        "release": "1.4.2",
+        "environment": "staging",
+        "ignore": [
+          "ResizeObserver"
+        ]
+      },
+      "capture": {
+        "kind": "exception",
+        "type": "Error",
+        "message": "ResizeObserver loop limit exceeded"
+      },
+      "requests": [],
+      "after": "ok"
+    },
+    {
+      "name": "429 → uma nova tentativa (mesmo corpo)",
+      "init": {
+        "key": "bf_mon_conformance",
+        "release": "1.4.2",
+        "environment": "staging"
+      },
+      "capture": {
+        "kind": "exception",
+        "type": "E",
+        "message": "retry"
+      },
+      "requests": [
+        {
+          "expect": {
+            "method": "POST",
+            "path": "/api/v1/monitor/events",
+            "headers": {
+              "X-bFocus-Monitor-Key": "bf_mon_conformance",
+              "Content-Type": "application/json"
+            },
+            "header_prefix": {
+              "X-bFocus-Client": "bfocus-monitor-"
+            },
+            "event": {
+              "exception.message": "retry"
+            }
+          },
+          "respond": {
+            "status": 429,
+            "body": {
+              "error": "MONITOR_RATE_LIMITED"
+            }
+          }
+        },
+        {
+          "expect": {
+            "method": "POST",
+            "path": "/api/v1/monitor/events",
+            "headers": {
+              "X-bFocus-Monitor-Key": "bf_mon_conformance",
+              "Content-Type": "application/json"
+            },
+            "header_prefix": {
+              "X-bFocus-Client": "bfocus-monitor-"
+            },
+            "event": {
+              "exception.message": "retry"
+            }
+          },
+          "respond": {
+            "status": 202,
+            "body": {
+              "accepted": 1
+            }
+          }
+        }
+      ],
+      "after": "ok"
+    },
+    {
+      "name": "401 → descarta e para de enviar até o próximo init",
+      "init": {
+        "key": "bf_mon_conformance",
+        "release": "1.4.2",
+        "environment": "staging"
+      },
+      "capture": {
+        "kind": "exception",
+        "type": "E",
+        "message": "chave"
+      },
+      "requests": [
+        {
+          "expect": {
+            "method": "POST",
+            "path": "/api/v1/monitor/events",
+            "headers": {
+              "X-bFocus-Monitor-Key": "bf_mon_conformance",
+              "Content-Type": "application/json"
+            },
+            "header_prefix": {
+              "X-bFocus-Client": "bfocus-monitor-"
+            },
+            "event": {
+              "exception.message": "chave"
+            }
+          },
+          "respond": {
+            "status": 401,
+            "body": {
+              "error": "MONITOR_KEY_INVALID"
+            }
+          }
+        }
+      ],
+      "then_capture": {
+        "kind": "exception",
+        "type": "E",
+        "message": "depois do 401"
+      },
+      "after": "disabled"
+    },
+    {
+      "name": "o mesmo erro em seguida sai uma vez só",
+      "init": {
+        "key": "bf_mon_conformance",
+        "release": "1.4.2",
+        "environment": "staging"
+      },
+      "capture": {
+        "kind": "exception",
+        "type": "E",
+        "message": "repetido"
+      },
+      "repeat": 3,
+      "requests": [
+        {
+          "expect": {
+            "method": "POST",
+            "path": "/api/v1/monitor/events",
+            "headers": {
+              "X-bFocus-Monitor-Key": "bf_mon_conformance",
+              "Content-Type": "application/json"
+            },
+            "header_prefix": {
+              "X-bFocus-Client": "bfocus-monitor-"
+            },
+            "event": {
+              "exception.message": "repetido"
+            }
+          },
+          "respond": {
+            "status": 202,
+            "body": {
+              "accepted": 1
+            }
+          }
+        }
+      ],
+      "after": "ok"
+    }
+  ],
+  "heartbeat": [
+    {
+      "name": "init manda o primeiro sinal de vida",
+      "init": {
+        "key": "bf_mon_conformance",
+        "release": "1.4.2",
+        "environment": "staging"
+      },
+      "expect": {
+        "method": "POST",
+        "path": "/api/v1/monitor/heartbeat",
+        "headers": {
+          "X-bFocus-Monitor-Key": "bf_mon_conformance",
+          "Content-Type": "application/json"
+        },
+        "header_prefix": {
+          "X-bFocus-Client": "bfocus-monitor-"
+        },
+        "body": {
+          "release": "1.4.2",
+          "environment": "staging",
+          "sdk.version": "$version"
+        },
+        "body_present": [
+          "instance",
+          "sdk.name"
+        ]
+      },
+      "respond": {
+        "status": 204
+      }
+    }
+  ],
+  "frames": [
+    {
+      "name": "de dentro para fora → de fora para dentro; biblioteca não é do sistema",
+      "runtime_order": [
+        {
+          "file": "app/pedidos/total.py",
+          "function": "calcular",
+          "line": 50,
+          "library": false
+        },
+        {
+          "file": "app/main.py",
+          "function": "handle",
+          "line": 10,
+          "library": false
+        },
+        {
+          "file": "/usr/lib/python3.12/site-packages/starlette/routing.py",
+          "function": "app",
+          "line": 70,
+          "library": true
+        }
+      ],
+      "expected": [
+        {
+          "file": "/usr/lib/python3.12/site-packages/starlette/routing.py",
+          "function": "app",
+          "line": 70,
+          "inApp": false
+        },
+        {
+          "file": "app/main.py",
+          "function": "handle",
+          "line": 10,
+          "inApp": true
+        },
+        {
+          "file": "app/pedidos/total.py",
+          "function": "calcular",
+          "line": 50,
+          "inApp": true
+        }
+      ]
+    }
+  ]
+}

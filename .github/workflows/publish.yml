@@ -1,0 +1,135 @@
+# Publica o pacote `bfocus-monitor` (import bfocus_monitor) no PyPI ao dar push de uma tag vX.Y.Z
+# no espelho público bernisoftware/bfocus-monitor-python (o scripts/release-monitor.sh do monorepo
+# espelha monitor/python e cria a tag).
+#
+# PUBLICAR EXIGE SUÍTE VERDE — no piso e no teto do requires-python, contra a árvore E contra o
+# wheel que vai subir. Os testes que comparam com o monorepo (monitor/release.json e
+# monitor/conformance/cases.json) pulam sozinhos aqui: o espelho só tem a cópia tests/cases.json.
+#
+# Autenticação no PyPI: Trusted Publishing (OIDC), sem segredo guardado. Configure 1x em
+# pypi.org → (pending) publisher: projeto `bfocus-monitor`, owner `bernisoftware`,
+# repo `bfocus-monitor-python`, workflow `publish.yml`, environment `pypi`.
+# Prefere token? Crie o secret PYPI_TOKEN (token de projeto) e descomente o `with:` do
+# último passo — o resto do workflow não muda.
+name: publish
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+env:
+  # Integrações exercitadas pela suíte (sem elas, os testes de ASGI/FastAPI e Flask pulam).
+  # O pacote em si não depende de nada: só a suíte usa.
+  INTEGRACOES: fastapi httpx flask
+
+jobs:
+  # Piso e teto da faixa declarada em pyproject.toml (requires-python >= 3.9).
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        python-version: ['3.9', '3.13']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: python -m pip install --quiet $INTEGRACOES
+      # Conformidade (cases.json) + unitários + versão + integrações.
+      - run: python -m unittest discover -s tests -t tests -v
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      # A tag é a versão publicada. O bump e a tag são passos separados no release-monitor.sh:
+      # se divergirem, o PyPI receberia um número diferente do que a tag promete (e o
+      # X-bFocus-Client / sdk.version dos eventos mentiria).
+      - name: A tag bate com o pyproject e com bfocus_monitor/_version.py
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          proj="$(python -c "import re,pathlib;print(re.search(r'(?m)^version\s*=\s*\"([^\"]+)\"',pathlib.Path('pyproject.toml').read_text()).group(1))")"
+          code="$(python -c "import re,pathlib;print(re.search(r'__version__\s*=\s*\"([^\"]+)\"',pathlib.Path('bfocus_monitor/_version.py').read_text()).group(1))")"
+          [ "$tag" = "$proj" ] || { echo "::error::tag $GITHUB_REF_NAME != pyproject $proj"; exit 1; }
+          [ "$proj" = "$code" ] || { echo "::error::pyproject $proj != bfocus_monitor/_version.py $code"; exit 1; }
+          echo "versão $proj confirmada"
+
+      - run: python -m pip install --upgrade build twine
+      - run: python -m build
+      - run: python -m twine check --strict dist/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+
+  # A suíte roda de novo, agora contra o WHEEL instalado — pega erro de empacotamento (módulo que
+  # ficou de fora, py.typed ausente). O tests/_support.py põe a raiz do pacote no sys.path (para
+  # rodar do fonte sem instalar); por isso o fonte bfocus_monitor/ sai do checkout e no lugar entra
+  # um link para o pacote INSTALADO no venv — a suíte só enxerga o que o wheel trouxe, e o
+  # test_version continua comparando o _version.py do wheel com o pyproject.toml.
+  verify-wheel:
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        python-version: ['3.9', '3.13']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - name: Instala o wheel num venv limpo
+        run: |
+          python -m venv /tmp/verify
+          /tmp/verify/bin/pip install --quiet dist/*.whl $INTEGRACOES
+          cd /tmp
+          /tmp/verify/bin/python - <<'EOF'
+          import pathlib, bfocus_monitor
+          pkg = pathlib.Path(bfocus_monitor.__file__).parent
+          print("importado de:", pkg)
+          assert "site-packages" in str(pkg), f"importou o fonte, não o wheel: {pkg}"
+          assert (pkg / "py.typed").is_file(), "py.typed fora do wheel"
+          for mod in ("_core", "_version", "asgi", "django", "flask"):
+              assert (pkg / f"{mod}.py").is_file(), f"{mod}.py fora do wheel"
+          print("versão instalada:", bfocus_monitor.__version__)
+          EOF
+      - name: Suíte contra o wheel construído
+        run: |
+          pkg="$(cd /tmp && /tmp/verify/bin/python -c 'import bfocus_monitor, os; print(os.path.dirname(bfocus_monitor.__file__))')"
+          rm -rf bfocus_monitor
+          ln -s "$pkg" bfocus_monitor
+          /tmp/verify/bin/python -c 'import bfocus_monitor, os, sys; f = os.path.realpath(bfocus_monitor.__file__); print("a suíte usa:", f); sys.exit("site-packages" not in f)'
+          /tmp/verify/bin/python -m unittest discover -s tests -t tests -v
+
+  publish:
+    needs: [build, verify-wheel] # sem suíte verde (árvore + wheel) não sobe nada
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/bfocus-monitor
+    permissions:
+      id-token: write # Trusted Publishing (OIDC)
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        # Para publicar com token em vez de OIDC, descomente:
+        # with:
+        #   password: ${{ secrets.PYPI_TOKEN }}
