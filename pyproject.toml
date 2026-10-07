@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "bfocus-monitor"
-version = "0.1.1"
+version = "0.1.2"
 description = "Monitoramento de erros do bFocus para Python: captura os erros não tratados e manda para o bFocus, onde viram demanda."
 readme = "README.md"
 requires-python = ">=3.9"
